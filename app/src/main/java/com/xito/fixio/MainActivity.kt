@@ -55,7 +55,9 @@ class MainActivity : ComponentActivity() {
                 val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
                 Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                     AnimatedBackground(dark)
-                    App(onThemeChange = { themeMode = it })
+                    Surface(color = Color.Transparent, contentColor = MaterialTheme.colorScheme.onBackground, modifier = Modifier.fillMaxSize()) {
+                        App(onThemeChange = { themeMode = it })
+                    }
                 }
             }
         }
@@ -118,6 +120,9 @@ fun Onboarding(done: () -> Unit) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     var name by remember { mutableStateOf("") }
     var gender by remember { mutableStateOf("m") }
+    var age by remember { mutableStateOf("") }
+    var height by remember { mutableStateOf("") }
+    var weight by remember { mutableStateOf("") }
     Column(
         Modifier.fillMaxSize().padding(28.dp),
         verticalArrangement = Arrangement.Center,
@@ -140,11 +145,19 @@ fun Onboarding(done: () -> Unit) {
             FilterChip(gender == "m", { gender = "m" }, label = { Text("♂ Masculino") })
             FilterChip(gender == "f", { gender = "f" }, label = { Text("♀ Femenino") })
         }
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(age, { age = it.filter { ch -> ch.isDigit() }.take(3) }, label = { Text("Edad") }, singleLine = true, modifier = Modifier.weight(1f))
+            OutlinedTextField(height, { height = it.filter { ch -> ch.isDigit() }.take(3) }, label = { Text("Altura cm") }, singleLine = true, modifier = Modifier.weight(1f))
+            OutlinedTextField(weight, { weight = it.filter { ch -> ch.isDigit() }.take(3) }, label = { Text("Peso kg") }, singleLine = true, modifier = Modifier.weight(1f))
+        }
+        Text("Estos datos mejoran la precisión de los consejos (opcional).", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(20.dp))
         Button(
             onClick = {
                 Store.setName(ctx, name.ifBlank { "Usuario" })
                 Store.setGender(ctx, gender)
+                Store.setBody(ctx, age.toIntOrNull() ?: 0, height.toIntOrNull() ?: 0, weight.toIntOrNull() ?: 0)
                 Store.setOnboarded(ctx)
                 done()
             },
@@ -224,6 +237,36 @@ fun HomeScreen(refresh: Int, goRegister: () -> Unit) {
             }
         }
         Spacer(Modifier.height(20.dp))
+        var waterTick by remember { mutableStateOf(0) }
+        val water = remember(waterTick) { Store.water(ctx) }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Card(Modifier.weight(1.4f), shape = RoundedCornerShape(20.dp)) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("💧 Hidratación", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text("$water/8 vasos hoy", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(6.dp))
+                    LinearProgressIndicator(progress = { (water / 8f).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilledTonalButton({ Store.addWater(ctx, 1); waterTick++ }, contentPadding = PaddingValues(horizontal = 14.dp)) { Text("+1") }
+                        OutlinedButton({ Store.addWater(ctx, -1); waterTick++ }, contentPadding = PaddingValues(horizontal = 14.dp)) { Text("-1") }
+                    }
+                }
+            }
+            Store.bmi(ctx)?.let { bmi ->
+                Card(Modifier.weight(1f), shape = RoundedCornerShape(20.dp)) {
+                    Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("⚖️ IMC", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text(String.format(Locale.US, "%.1f", bmi), fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Text(
+                            when { bmi < 18.5 -> "Bajo"; bmi < 25 -> "Saludable"; bmi < 30 -> "Sobrepeso"; else -> "Alto" },
+                            fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(20.dp))
         Text("Consejo del día 💡", fontWeight = FontWeight.Bold, fontSize = 16.sp)
         Spacer(Modifier.height(8.dp))
         val tips = listOf(
@@ -260,6 +303,9 @@ fun RegisterScreen(onSaved: () -> Unit) {
         mutableStateMapOf<String, String>().apply { existing?.points?.forEach { put(it.zoneId, it.note) } }
     }
     var editingZone by remember { mutableStateOf<String?>(null) }
+    var drawMode by remember { mutableStateOf(false) }
+    var brush by remember { mutableStateOf(5) }
+    val drawPts = remember { mutableStateListOf<DrawPoint>().apply { addAll(Store.drawPoints(ctx, Store.today())) } }
     var mood by remember { mutableStateOf(existing?.mood ?: 3) }
     var sleep by remember { mutableStateOf(existing?.sleep ?: 3) }
     var activity by remember { mutableStateOf(existing?.activity ?: 2) }
@@ -272,11 +318,24 @@ fun RegisterScreen(onSaved: () -> Unit) {
         Text("Registro diario", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text("Toca las zonas donde sientas dolor", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
         Spacer(Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             FilterChip(!back, { back = false }, label = { Text("Frente") })
             FilterChip(back, { back = true }, label = { Text("Espalda") })
             Spacer(Modifier.weight(1f))
-            AssistChip(onClick = {}, label = { Text(if (female) "♀" else "♂") })
+            FilterChip(drawMode, { drawMode = !drawMode }, label = { Text(if (drawMode) "✏️ Pincel ON" else "✏️ Pincel") })
+        }
+        if (drawMode) {
+            Spacer(Modifier.height(6.dp))
+            Card(shape = RoundedCornerShape(14.dp)) {
+                Column(Modifier.padding(12.dp)) {
+                    Text("Pinta sobre el cuerpo la zona exacta · intensidad $brush/10", fontSize = 12.sp, color = scoreColor(brush), fontWeight = FontWeight.Bold)
+                    Slider(brush.toFloat(), { brush = it.toInt().coerceIn(1, 10) }, valueRange = 1f..10f, steps = 8)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton({ if (drawPts.isNotEmpty()) drawPts.removeAt(drawPts.size - 1) }, contentPadding = PaddingValues(horizontal = 12.dp)) { Text("↩ Deshacer", fontSize = 12.sp) }
+                        OutlinedButton({ drawPts.removeAll { it.back == back } }, contentPadding = PaddingValues(horizontal = 12.dp)) { Text("🗑 Limpiar lado", fontSize = 12.sp) }
+                    }
+                }
+            }
         }
         Spacer(Modifier.height(8.dp))
         Card(shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
@@ -286,6 +345,8 @@ fun RegisterScreen(onSaved: () -> Unit) {
                     .aspectRatio(bodyAspect())
                     .padding(8.dp),
                 back = back, female = female, scores = scores,
+                drawPoints = drawPts, drawMode = drawMode, brushScore = brush,
+                onDraw = { x, y -> drawPts.add(DrawPoint(x, y, brush, back)) },
                 onZoneTap = { editingZone = it }
             )
         }
@@ -326,6 +387,7 @@ fun RegisterScreen(onSaved: () -> Unit) {
                     mood, sleep, activity
                 )
                 Store.saveEntry(ctx, entry)
+                Store.saveDrawPoints(ctx, Store.today(), drawPts.toList())
                 ExtraStore.markRegisteredLate(ctx)
                 loading = true
                 scope.launch {
@@ -389,7 +451,7 @@ fun ExercisesScreen(refresh: Int) {
     val zones = today?.points?.sortedByDescending { it.score }?.map { it.zoneId }
         ?: listOf("lumbar", "cuello")
     var expanded by remember { mutableStateOf<String?>(null) }
-    var player by remember { mutableStateOf<Exercise?>(null) }
+    var player by remember { mutableStateOf<Pair<String, Exercise>?>(null) }
     var breathing by remember { mutableStateOf(false) }
     var doneTick by remember { mutableStateOf(0) }
     val done = remember(doneTick) { ExtraStore.doneToday(ctx) }
@@ -450,7 +512,7 @@ fun ExercisesScreen(refresh: Int) {
                             Text("⚠️ ${ex.caution}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(Modifier.height(12.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Button({ player = ex }, Modifier.weight(1f)) { Text("▶ Guía") }
+                                Button({ player = zid to ex }, Modifier.weight(1f)) { Text("▶ Guía animada") }
                                 OutlinedButton({ ExtraStore.toggleDone(ctx, key); doneTick++ }, Modifier.weight(1f)) {
                                     Text(if (isDone) "Desmarcar" else "Marcar hecho")
                                 }
@@ -463,9 +525,9 @@ fun ExercisesScreen(refresh: Int) {
         item { Spacer(Modifier.height(20.dp)) }
     }
 
-    player?.let { ex ->
-        ExercisePlayer(ex, onClose = { player = null }, onComplete = {
-            ExtraStore.toggleDone(ctx, "${zones.first()}-${ex.name}"); doneTick++
+    player?.let { (zid, ex) ->
+        ExercisePlayer(ex, animKindFor(zid), onClose = { player = null }, onComplete = {
+            ExtraStore.toggleDone(ctx, "$zid-${ex.name}"); doneTick++
         })
     }
     if (breathing) BreathingScreen { breathing = false }
@@ -701,6 +763,15 @@ fun SettingsSection(onThemeChange: (String) -> Unit) {
             FilterChip(gender == "m", { gender = "m"; Store.setGender(ctx, "m") }, label = { Text("♂ Masculino") })
             FilterChip(gender == "f", { gender = "f"; Store.setGender(ctx, "f") }, label = { Text("♀ Femenino") })
         }
+        Spacer(Modifier.height(8.dp))
+        var age by remember { mutableStateOf(if (Store.age(ctx) > 0) Store.age(ctx).toString() else "") }
+        var hgt by remember { mutableStateOf(if (Store.heightCm(ctx) > 0) Store.heightCm(ctx).toString() else "") }
+        var wgt by remember { mutableStateOf(if (Store.weightKg(ctx) > 0) Store.weightKg(ctx).toString() else "") }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(age, { age = it.filter { c2 -> c2.isDigit() }.take(3); Store.setBody(ctx, age.toIntOrNull() ?: 0, hgt.toIntOrNull() ?: 0, wgt.toIntOrNull() ?: 0) }, label = { Text("Edad") }, singleLine = true, modifier = Modifier.weight(1f))
+            OutlinedTextField(hgt, { hgt = it.filter { c2 -> c2.isDigit() }.take(3); Store.setBody(ctx, age.toIntOrNull() ?: 0, hgt.toIntOrNull() ?: 0, wgt.toIntOrNull() ?: 0) }, label = { Text("Altura") }, singleLine = true, modifier = Modifier.weight(1f))
+            OutlinedTextField(wgt, { wgt = it.filter { c2 -> c2.isDigit() }.take(3); Store.setBody(ctx, age.toIntOrNull() ?: 0, hgt.toIntOrNull() ?: 0, wgt.toIntOrNull() ?: 0) }, label = { Text("Peso") }, singleLine = true, modifier = Modifier.weight(1f))
+        }
         Spacer(Modifier.height(20.dp))
 
         Text("Recordatorio diario", fontWeight = FontWeight.SemiBold)
@@ -733,7 +804,7 @@ fun SettingsSection(onThemeChange: (String) -> Unit) {
         }, shape = RoundedCornerShape(14.dp)) { Text("📋 Copiar historial (CSV)") }
         if (copied) Text("Copiado al portapapeles ✓", fontSize = 12.sp, color = Teal)
         Spacer(Modifier.height(24.dp))
-        Text("Fixio v1.2 · Xito Development\n⚠️ Esta app no reemplaza el consejo médico profesional.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Fixio v1.3 · Xito Development\n⚠️ Esta app no reemplaza el consejo médico profesional.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(20.dp))
     }
 }

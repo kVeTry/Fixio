@@ -28,7 +28,13 @@ object Ai {
                 val hist = history.takeLast(7).joinToString("\n") { d ->
                     "${d.date}: " + if (d.points.isEmpty()) "sin dolor" else d.points.joinToString(", ") { "${Zones.byId(it.zoneId).name} ${it.score}/10" }
                 }
-                val prompt = "Eres un asistente de bienestar físico (NO médico; recuérdalo brevemente). Usuario registra hoy:\n$desc\nÁnimo ${entry.mood}/5, sueño ${entry.sleep}/5, actividad ${entry.activity}/5.\nHistorial 7 días:\n$hist\n\nEn español, breve y práctico: 1) posible origen habitual de estas molestias, 2) consejos concretos para hoy, 3) señales de alarma para acudir al médico. Máximo 250 palabras."
+                val body = buildString {
+                    if (Store.age(c) > 0) append("Edad ${Store.age(c)}. ")
+                    if (Store.heightCm(c) > 0) append("Altura ${Store.heightCm(c)}cm. ")
+                    if (Store.weightKg(c) > 0) append("Peso ${Store.weightKg(c)}kg. ")
+                    Store.bmi(c)?.let { append("IMC ${String.format(java.util.Locale.US, "%.1f", it)}. ") }
+                }
+                val prompt = "Eres un asistente de bienestar físico (NO médico; recuérdalo brevemente). Perfil: $body Usuario registra hoy:\n$desc\nÁnimo ${entry.mood}/5, sueño ${entry.sleep}/5, actividad ${entry.activity}/5.\nHistorial 7 días:\n$hist\n\nEn español, breve y práctico: 1) posible origen habitual de estas molestias, 2) consejos concretos para hoy, 3) señales de alarma para acudir al médico. Máximo 250 palabras."
                 val body = JSONObject()
                     .put("model", "claude-sonnet-4-6")
                     .put("max_tokens", 800)

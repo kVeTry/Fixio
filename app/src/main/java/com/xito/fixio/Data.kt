@@ -74,6 +74,38 @@ object Store {
     fun onboarded(c: Context) = prefs(c).getBoolean("onboarded", false)
     fun setOnboarded(c: Context) = prefs(c).edit().putBoolean("onboarded", true).apply()
 
+    fun age(c: Context) = prefs(c).getInt("age", 0)
+    fun heightCm(c: Context) = prefs(c).getInt("height", 0)
+    fun weightKg(c: Context) = prefs(c).getInt("weight", 0)
+    fun setBody(c: Context, age: Int, h: Int, w: Int) =
+        prefs(c).edit().putInt("age", age).putInt("height", h).putInt("weight", w).apply()
+    fun bmi(c: Context): Double? {
+        val h = heightCm(c); val w = weightKg(c)
+        if (h <= 0 || w <= 0) return null
+        val m = h / 100.0
+        return w / (m * m)
+    }
+
+    fun water(c: Context): Int = prefs(c).getInt("water_${today()}", 0)
+    fun addWater(c: Context, delta: Int) =
+        prefs(c).edit().putInt("water_${today()}", (water(c) + delta).coerceAtLeast(0)).apply()
+
+    fun drawPoints(c: Context, date: String): List<DrawPoint> {
+        val raw = prefs(c).getString("draw_$date", "[]")!!
+        val arr = JSONArray(raw)
+        val out = ArrayList<DrawPoint>()
+        for (i in 0 until arr.length()) {
+            val o = arr.getJSONObject(i)
+            out.add(DrawPoint(o.getDouble("x").toFloat(), o.getDouble("y").toFloat(), o.getInt("s"), o.getBoolean("b")))
+        }
+        return out
+    }
+    fun saveDrawPoints(c: Context, date: String, pts: List<DrawPoint>) {
+        val arr = JSONArray()
+        pts.forEach { arr.put(JSONObject().put("x", it.x.toDouble()).put("y", it.y.toDouble()).put("s", it.score).put("b", it.back)) }
+        prefs(c).edit().putString("draw_$date", arr.toString()).apply()
+    }
+
     fun today(): String = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
 
     fun entries(c: Context): List<DayEntry> {

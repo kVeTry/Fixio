@@ -17,7 +17,8 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 
 @Composable
-fun ExercisePlayer(exercise: Exercise, onClose: () -> Unit, onComplete: () -> Unit) {
+fun ExercisePlayer(exercise: Exercise, kind: AnimKind, onClose: () -> Unit, onComplete: () -> Unit) {
+    KeepScreenOn()
     var step by remember { mutableStateOf(0) }
     var seconds by remember { mutableStateOf(30) }
     var running by remember { mutableStateOf(false) }
@@ -30,13 +31,20 @@ fun ExercisePlayer(exercise: Exercise, onClose: () -> Unit, onComplete: () -> Un
     Dialog(onDismiss = onClose) {
         Column(Modifier.padding(24.dp)) {
             Text(exercise.name, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-            Text("Paso ${step + 1} de ${exercise.steps.size}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
-            Spacer(Modifier.height(16.dp))
+            Text("Paso ${step + 1} de ${exercise.steps.size} · 📱 pantalla siempre encendida", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+            Spacer(Modifier.height(12.dp))
+            Card(shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                ExerciseAnim(
+                    Modifier.fillMaxWidth().height(150.dp).padding(8.dp),
+                    kind, MaterialTheme.colorScheme.onSurface, MaterialTheme.colorScheme.primary
+                )
+            }
+            Spacer(Modifier.height(12.dp))
             LinearProgressIndicator(
                 progress = { (step + 1f) / exercise.steps.size },
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(14.dp))
             Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Text(exercise.steps[step], Modifier.padding(20.dp).fillMaxWidth(), fontSize = 16.sp)
             }
@@ -69,6 +77,7 @@ fun ExercisePlayer(exercise: Exercise, onClose: () -> Unit, onComplete: () -> Un
 
 @Composable
 fun BreathingScreen(onClose: () -> Unit) {
+    KeepScreenOn()
     // ciclo 4-7-8: inspira 4, mantén 7, exhala 8
     val phases = listOf("Inspira" to 4, "Mantén" to 7, "Exhala" to 8)
     var phase by remember { mutableStateOf(0) }
