@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 
 // Zonas en coordenadas normalizadas (0..1) sobre lienzo 300x600
 private data class NZone(val id: String, val x: Float, val y: Float, val w: Float, val h: Float, val oval: Boolean = false)
