@@ -4,6 +4,7 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.Modifier
@@ -111,8 +112,14 @@ fun BodyMap(
     onZoneTap: (String) -> Unit
 ) {
     val zones = if (back) backZones else frontZones
-    val pulse by rememberInfiniteTransition(label = "pulse").animateFloat(
-        0.6f, 0.9f, infiniteRepeatable(tween(1400), RepeatMode.Reverse), label = "pa"
+    val infiniteTransition = rememberInfiniteTransition()
+    val pulse by infiniteTransition.animateFloat(
+        initialValue = 0.6f,
+        targetValue = 0.9f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1400),
+            repeatMode = RepeatMode.Reverse
+        )
     )
     Canvas(
         modifier.pointerInput(back) {
